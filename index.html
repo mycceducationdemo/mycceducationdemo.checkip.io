@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lab Exercise: Windows Network Troubleshooting</title>
+  <style>
+    :root {
+      --bg-color: #1e1e1e;
+      --card-bg: #2d2d2d;
+      --text-color: #cccccc;
+      --accent-color: #007acc;
+      --success-color: #4ec9b0;
+      --error-color: #f44747;
+      --terminal-bg: #0c0c0c;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      margin: 0;
+      padding: 20px;
+      display: flex;
+      justify-content: center;
+    }
+
+    .container {
+      max-width: 900px;
+      width: 100%;
+    }
+
+    header {
+      background-color: var(--card-bg);
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      border-left: 5px solid var(--accent-color);
+    }
+
+    h1 { margin-top: 0; color: #ffffff; font-size: 1.5rem; }
+    h2 { font-size: 1.1rem; color: #ffffff; }
+
+    .instructions {
+      background-color: #252526;
+      padding: 15px 20px;
+      border-radius: 6px;
+      margin-bottom: 20px;
+      line-height: 1.5;
+    }
+
+    .network-spec {
+      background-color: #1a233a;
+      border: 1px solid #2b3a60;
+      padding: 12px 18px;
+      border-radius: 6px;
+      margin: 15px 0;
+    }
+
+    .network-spec ul {
+      margin: 5px 0 0 0;
+      padding-left: 20px;
+    }
+
+    /* Terminal Simulation */
+    .terminal {
+      background-color: var(--terminal-bg);
+      border-radius: 6px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+      overflow: hidden;
+      font-family: 'Consolas', 'Courier New', monospace;
+      border: 1px solid #333;
+    }
+
+    .terminal-header {
+      background-color: #333333;
+      padding: 8px 15px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      color: #aaa;
+      font-size: 0.85rem;
+    }
+
+    .terminal-body {
+      padding: 15px;
+      height: 380px;
+      overflow-y: auto;
+      font-size: 0.95rem;
+      line-height: 1.4;
+    }
+
+    .output-line {
+      margin-bottom: 4px;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    .input-line {
+      display: flex;
+      align-items: center;
+      margin-top: 5px;
+    }
+
+    .prompt {
+      color: #ffffff;
+      margin-right: 8px;
+      white-space: nowrap;
+    }
+
+    input[type="text"] {
+      background: transparent;
+      border: none;
+      color: #ffffff;
+      font-family: inherit;
+      font-size: inherit;
+      width: 100%;
+      outline: none;
+    }
+
+    .success-msg { color: var(--success-color); }
+    .error-msg { color: var(--error-color); }
+    .system-msg { color: #ce9178; }
+
+    .status-panel {
+      margin-top: 20px;
+      background-color: var(--card-bg);
+      padding: 15px;
+      border-radius: 6px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .badge {
+      padding: 6px 12px;
+      border-radius: 4px;
+      font-weight: bold;
+      font-size: 0.85rem;
+    }
+    .badge-offline { background-color: var(--error-color); color: white; }
+    .badge-online { background-color: var(--success-color); color: #111; }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <header>
+    <h1>Lab 4.1: Troubleshooting Windows IP Configuration</h1>
+    <p><strong>Scenario:</strong> Workstation <code>PC-SALES-02</code> cannot connect to the local gateway or external networks after a recent static IP migration.</p>
+  </header>
+
+  <div class="instructions">
+    <h2>Task Objectives</h2>
+    <ol>
+      <li>Use <code>ipconfig</code> to inspect the current network adapter parameters.</li>
+      <li>Compare the workstation configuration against the baseline target network specification below to locate the incorrect address parameter.</li>
+      <li>Use the netsh command to assign the correct static IP configuration:
+        <br><code>netsh interface ip set address name="Ethernet" static [IP] [Subnet] [Gateway]</code>
+      </li>
+      <li>Verify connectivity using <code>ping 192.168.1.1</code>.</li>
+    </ol>
+
+    <div class="network-spec">
+      <strong>Target Local Network Specification:</strong>
+      <ul>
+        <li><strong>Subnet Range:</strong> <code>192.168.1.0/24</code> (Subnet Mask: <code>255.255.255.0</code>)</li>
+        <li><strong>Default Gateway:</strong> <code>192.168.1.1</code></li>
+        <li><strong>Assigned IP for PC-SALES-02:</strong> <code>192.168.1.45</code></li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="terminal">
+    <div class="terminal-header">
+      <span>Command Prompt - Administrator</span>
+      <span>Windows PowerShell</span>
+    </div>
+    <div class="terminal-body" id="terminal-body">
+      <div class="output-line">Microsoft Windows [Version 10.0.19045.3803]</div>
+      <div class="output-line">(c) Microsoft Corporation. All rights reserved.</div>
+      <div class="output-line">&nbsp;</div>
+      <div class="output-line">Type 'ipconfig' to check configuration or 'help' for available lab commands.</div>
+      <div class="output-line">&nbsp;</div>
+      
+      <div id="terminal-history"></div>
+
+      <div class="input-line">
+        <span class="prompt">C:\Windows\system32&gt;</span>
+        <input type="text" id="cmd-input" autofocus autocomplete="off" spellcheck="false">
+      </div>
+    </div>
+  </div>
+
+  <div class="status-panel">
+    <div><strong>Network Interface:</strong> Ethernet</div>
+    <div>Status: <span id="network-status" class="badge badge-offline">DISCONNECTED</span></div>
+  </div>
+</div>
+
+<script>
+  // Initial state with misconfigured IP address (192.168.2.45 instead of 192.168.1.45)
+  let state = {
+    ip: "192.168.2.45",
+    subnet: "255.255.255.0",
+    gateway: "192.168.1.1",
+    interfaceName: "Ethernet",
+    isConnected: false
+  };
+
+  const correctIP = "192.168.1.45";
+  const cmdInput = document.getElementById('cmd-input');
+  const terminalHistory = document.getElementById('terminal-history');
+  const terminalBody = document.getElementById('terminal-body');
+  const statusBadge = document.getElementById('network-status');
+
+  cmdInput.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') {
+      const command = this.value.trim();
+      this.value = '';
+      if (command.length > 0) {
+        processCommand(command);
+      }
+    }
+  });
+
+  function appendOutput(text, className = '') {
+    const line = document.createElement('div');
+    line.className = 'output-line ' + className;
+    line.textContent = text;
+    terminalHistory.appendChild(line);
+    terminalBody.scrollTop = terminalBody.scrollHeight;
+  }
+
+  function processCommand(rawCmd) {
+    appendOutput(`C:\\Windows\\system32> ${rawCmd}`);
+    const cmd = rawCmd.toLowerCase();
+
+    if (cmd === 'clear' || cmd === 'cls') {
+      terminalHistory.innerHTML = '';
+      return;
+    }
+
+    if (cmd === 'help') {
+      appendOutput('Available commands: ipconfig, netsh, ping, cls');
+      return;
+    }
+
+    // IPCONFIG COMMAND
+    if (cmd === 'ipconfig' || cmd === 'ipconfig /all') {
+      appendOutput('\nWindows IP Configuration\n');
+      appendOutput(`Ethernet adapter ${state.interfaceName}:`);
+      appendOutput(`   Connection-specific DNS Suffix  . : lab.local`);
+      appendOutput(`   IPv4 Address. . . . . . . . . . . : ${state.ip}`);
+      appendOutput(`   Subnet Mask . . . . . . . . . . . : ${state.subnet}`);
+      appendOutput(`   Default Gateway . . . . . . . . . : ${state.gateway}\n`);
+      return;
+    }
+
+    // PING COMMAND
+    if (cmd.startsWith('ping')) {
+      const parts = cmd.split(/\s+/);
+      if (parts.length < 2) {
+        appendOutput('Usage: ping <ip_address>');
+        return;
+      }
+      const target = parts[1];
+      
+      appendOutput(`\nPinging ${target} with 32 bytes of data:`);
+
+      if (state.ip === correctIP && (target === '192.168.1.1' || target === '192.168.1.1')) {
+        appendOutput('Reply from 192.168.1.1: bytes=32 time=2ms TTL=64');
+        appendOutput('Reply from 192.168.1.1: bytes=32 time=1ms TTL=64');
+        appendOutput('Reply from 192.168.1.1: bytes=32 time=1ms TTL=64');
+        appendOutput('Reply from 192.168.1.1: bytes=32 time=2ms TTL=64\n');
+        appendOutput('Ping statistics for 192.168.1.1:');
+        appendOutput('    Packets: Sent = 4, Received = 4, Lost = 0 (0% loss)');
+        
+        // Trigger completion if connected and ping succeeded
+        if (!state.isConnected) {
+          state.isConnected = true;
+          statusBadge.textContent = 'ONLINE';
+          statusBadge.className = 'badge badge-online';
+          appendOutput('\n[TASK COMPLETE] Excellent job! You identified the misconfiguration (wrong subnet octet) and successfully restored connectivity.', 'success-msg');
+        }
+      } else {
+        appendOutput('Request timed out.');
+        appendOutput('Request timed out.');
+        appendOutput('Request timed out.');
+        appendOutput('Request timed out.\n');
+        appendOutput(`Ping statistics for ${target}:`);
+        appendOutput('    Packets: Sent = 4, Received = 0, Lost = 4 (100% loss)');
+        appendOutput('\n[HINT] Host is unreachable. Verify if your IPv4 Address belongs to the same subnet (192.168.1.x) as the Default Gateway.', 'system-msg');
+      }
+      return;
+    }
+
+    // NETSH COMMAND (IP Reconfiguration)
+    if (cmd.startsWith('netsh')) {
+      // Expected syntax: netsh interface ip set address name="Ethernet" static 192.168.1.45 255.255.255.0 192.168.1.1
+      const pattern = /netsh\s+interface\s+ip\s+set\s+address\s+name=["']?ethernet["']?\s+static\s+(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\s+(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\s+(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/;
+      const match = cmd.match(pattern);
+
+      if (match) {
+        const newIp = match[1];
+        const newSubnet = match[2];
+        const newGateway = match[3];
+
+        state.ip = newIp;
+        state.subnet = newSubnet;
+        state.gateway = newGateway;
+
+        appendOutput('IP address configuration updated successfully.');
+        appendOutput(`New Configuration -> IP: ${newIp} | Subnet: ${newSubnet} | Gateway: ${newGateway}`);
+        appendOutput('Run "ping 192.168.1.1" to verify connectivity.');
+      } else {
+        appendOutput('Invalid netsh syntax.', 'error-msg');
+        appendOutput('Use format: netsh interface ip set address name="Ethernet" static [IP] [Subnet] [Gateway]');
+        appendOutput('Example: netsh interface ip set address name="Ethernet" static 192.168.1.45 255.255.255.0 192.168.1.1');
+      }
+      return;
+    }
+
+    appendOutput(`'${rawCmd}' is not recognized as an internal or external command, operable program or batch file.`, 'error-msg');
+  }
+</script>
+
+</body>
+</html>
